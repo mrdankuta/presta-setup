@@ -36,14 +36,13 @@
 - Take note of the database credentials. This will be used to connect PrestaShop later.
   ![Alt text](./awsimgs/dbcredimage.png)
 
-- Create a database on the database server specifically for the PrestaShop installation.
 
 
 ## Step 2: Provision and Configure a Virtual Machine for the Application
 - Navigate to `EC2` and Launch an instance. In this case I am using Ubuntu 22.04 image
   ![Alt text](./awsimgs/ec21image.png)
 
-- Download new private key or select a previously created one to be able to connect via SSH. Edit network setting to select the right VPC, Subnet, enable `auto-assign publi ip`, selct the security group previously created for the App server.
+- Download new private key or select a previously created one to be able to connect via SSH. Edit network setting to select the right VPC, Subnet, enable `auto-assign publi ip`, select the security group previously created for the App server.
   ![Alt text](./awsimgs/ec22image.png)
 
 - When the resource has been deployed, open a terminal on the local machine and connect via SSH with the private key downloaded earlier.
@@ -77,12 +76,12 @@
   sudo apt install mysql-client -y
 
   ```
+  ![Alt text](./awsimgs/scriptrunimage.png)
+  ![Alt text](./awsimgs/setup-run.gif)
 - Check that Apache webserver is installed and running:
   ```
   sudo systemctl status apache2
   ```
-  ![Alt text](./awsimgs/scriptrunimage.png)
-  ![Alt text](./awsimgs/setup-run.gif)
 - You can visit the Public IP address or the Public DNS provided by AWS to check that the webserver was properly installed. You should see this image:
   ![Alt text](./awsimgs/a2worksimage.png)
 - Next, we will connect to the remote database to prepare the database with the right privileges.
