@@ -1,25 +1,53 @@
 # Step-by-step PrestaShop Installation Documentation
 
-## Step 1: Prepare remote database server
-- Navigate to `Azure DB for MySQL` in Azure Portal
-![Alt text](./images/1.png)
-- Create new MySQL server. Select `Flexible server` 
-![Alt text](./images/image.png)
-![Alt text](./images/image-1.png)
-- When deployment is complete navigate to the resource and go to `Connect` under the `Settings` pane. Take note of the database credentials. This will be used to connect PrestaShop later.
-![Alt text](./images/image-2.png)
+## Step 0: Prepare Networking Infrastructure 
+- Itemize all that'll be needed for the entire infrastructure to work:
+  - Create VPC
+    ![Alt text](./awsimgs/image.png)
+  - Create Subnet
+    ![Alt text](./awsimgs/image-2.png)
+  - Create Internet Gateway & associate with VPC
+    ![Alt text](./awsimgs/image22233.png)
+    ![Alt text](./awsimgs/image-1111.png)
+    ![Alt text](./awsimgs/image-2222.png)
+  - Navigate to VPC's default Route table and add route for connecting to the internet via the previously created Internet Gateway.
+    ![Alt text](./awsimgs/rtb1image.png)
+  - Associate Route Table to the Previously created Subnet. 
+    ![Alt text](./awsimgs/rtb-sbntimage.png)
+  - Create Security Group that will be attached to the RDS server and open port `3306` for connecting to `MySQL`. Inbound connection can be limited to the Subnet CIDR for higher security.
+    ![Alt text](./awsimgs/rds-sg-image.png)
+  - Create another Security Group for the webserver where the PrestaShop will be installed. Open port `80` for accessing the App via `HTTP`. Also open port `22` for `SSH` access.
+    ![Alt text](./awsimgs/app-sg-image.png)
+
+
+## Step 1: Prepare remote database server 
+- Navigate to `RDS` in AWS Portal and create a database.
+- Select MySQL engine type.
+  ![Alt text](./awsimgs/rds1image.png)
+- Choose the VPC the infrastructure in being built in. Choose the Security Group previously created for database connectivity.
+  ![Alt text](./awsimgs/rds2image-1.png)
+- Create database.
+  ![Alt text](./awsimgs/rds3image-2.png)
+- At the point of creating the database with the configuration above, an error will occur. Return to the subnets and create another subnet in another Availability Zone. Note the CIDR block.
+  ![Alt text](./awsimgs/add-subnet-image.png)
+- Another error about VPC DNS hostname not enabled. Go to the VPC -> Edit VPC Settings and enable DNS Hostnames
+  ![Alt text](./awsimgs/dns-hostnames-image-1.png)
+
+- Take note of the database credentials. This will be used to connect PrestaShop later.
+  ![Alt text](./awsimgs/dbcredimage.png)
+
 - Create a database on the database server specifically for the PrestaShop installation.
-  ![Alt text](./images/image-15.png)
+
 
 ## Step 2: Provision and Configure a Virtual Machine for the Application
-- Navigate to `Virtual machines` and Create an instance. In this case I am using Ubuntu 22.04 image
-  ![Alt text](./images/image-3.png)
-  ![Alt text](./images/image-4.png)
-- Download private key to be able to connect via SSH
-  ![Alt text](./images/image-5.png)
-  ![Alt text](./images/image-6.png)
+- Navigate to `EC2` and Launch an instance. In this case I am using Ubuntu 22.04 image
+  ![Alt text](./awsimgs/ec21image.png)
+
+- Download new private key or select a previously created one to be able to connect via SSH. Edit network setting to select the right VPC, Subnet, enable `auto-assign publi ip`, selct the security group previously created for the App server.
+  ![Alt text](./awsimgs/ec22image.png)
+
 - When the resource has been deployed, open a terminal on the local machine and connect via SSH with the private key downloaded earlier.
-  ![Alt text](./images/image-7.png)
+
 - The next step is to configure the server and install all that is required to run PrestaShop. In my case I have created a Bash script to complete all the necessary installations.
   ```
   #!/bin/bash
@@ -31,7 +59,7 @@
   sudo apt install apache2 -y
 
   # Install PHP and necessary extensions
-  sudo apt install php php-curl php-dom php-fileinfo php-gd php-intl php-mbstring php-zip php-json php-iconv -y
+  sudo apt install php php-mysql php-curl php-dom php-fileinfo php-gd php-intl php-mbstring php-zip php-json php-iconv -y
 
   # Enable necessary Apache modules
   sudo a2enmod rewrite
@@ -53,9 +81,26 @@
   ```
   sudo systemctl status apache2
   ```
-  ![Alt text](./images/image-8.png)
-- Return to the Azure Portal and navigate to `Public IP Addresses` -> `Configure` and enter a DNS name label to be able to use Azure's default DNS names instead of using public IPs. In my case I have entered `bincompresta`. Hence my DNS label will be `bincompresta.eastus.cloudapp.azure.com`.
-  ![Alt text](./images/imagedns.png)
+  ![Alt text](./awsimgs/scriptrunimage.png)
+  ![Alt text](./awsimgs/setup-run.gif)
+- You can visit the Public IP address or the Public DNS provided by AWS to check that the webserver was properly installed. You should see this image:
+  ![Alt text](./awsimgs/a2worksimage.png)
+- Next, we will connect to the remote database to prepare the database with the right privileges.
+  ```
+  # Connect to the Database
+  mysql -h bincom-presta-rds.ckoz8ewfenvj.us-east-1.rds.amazonaws.com -u bincomdb -p
+
+  # Create the database PrestaShop should use
+  CREATE DATABASE bincomecom;
+
+  # Create all privileges on the database to the admin user
+  GRANT ALL PRIVILEGES ON bincomecom.* TO 'bincomdb';
+  FLUSH PRIVILEGES;
+
+  exit
+  ```
+
+
 
 ## Step 3: Install PrestaShop
 - The PrestaShop official documentation can be found here: https://docs.prestashop-project.org/v.8-documentation/getting-started/installing-prestashop
@@ -73,28 +118,38 @@
   ```
 - Delete the default `index.html` file that comes with the Apache webserver and unzip the prestashop zipped folder:
   ```
-  unzip prestashop_8.1.1.zip
+  sudo rm -f index.html
+  sudo unzip prestashop_8.1.1.zip
   ```
   - Install `unzip` if not available:
     ```
     sudo apt-get install unzip
     ```
-- Now, visit the dns label (`bincompresta.eastus.cloudapp.azure.com`) previously created in the browser to complete the installation with the PrestaShop GUI
-  ![Alt text](./images/image-10.png)
-- Follow the installation assistant and clicking `next` to proceed
-  ![Alt text](./images/image-11.png)
-- In my case I encountered an error when PrestaShop ran a System Compatibility check. In the bash script above, I had omitted a critical extension needed by PrestaShop, `PHP-Mysql`. Responsible for enabling PHP to connect to the MySQL database.
-  ![Alt text](./images/image-12.png)
-- To fix this, I executed the following command then clicked on the provided refresh button:
+- Now, visit the public dns in the browser to complete the installation with the PrestaShop GUI
+  ![Alt text](./awsimgs/presta1image.png)
+  ![Alt text](./awsimgs/presta2image.png)
+  ![Alt text](./awsimgs/presta3image.png)
+  ![Alt text](./awsimgs/presta4image.png)
+- Enter RDS database credentials saved earlier
+  ![Alt text](./awsimgs/presta5image.png)
+- Wait for installation to complete
+  ![Alt text](./awsimgs/presta6image.png)
+- Installation complete. Note the message asking to delete the `install` folder.
+  ![Alt text](./awsimgs/presta7image.png)
+- In terminal navigate to `/var/www/html` and view the files in the directory
   ```
-  sudo apt install php-mysql
+  cd /var/www/html
+  ls
   ```
-  ![Alt text](./images/image-13.png)
-- Enter information for the PrestaShop Ecommerce Store and credentials for the store's Admin account
-  ![Alt text](./images/image-14.png)
-- Next step is to connect the remote database. Enter the connection details from the `Azure DB for MySQL` server that was previously configured.
-  
-  ![Alt text](./images/image-16.png)
-  - I encountered a blocker here. I used the same credentials to connect from `TablePlus` software from my computer. It was successful:
-    ![Alt text](./imagetp.png)
-  - I SSH'd into the Application Virtual Machine and tried to connect to the remote MySQL server as a client using the `mysql -h presta-db-server.mysql.database.azure.com -u bincomdb -p` command. It was successful.
+  ![Alt text](./awsimgs/prestafilesimage.png)
+- Delete the `install` folder as required. The downloaded zip file can also be downloaded.
+  ```
+  sudo rm -rf install
+  sudo rm -f prestashop_8.1.1.zip
+  ```
+  ![Alt text](./awsimgs/prestafiles2image.png)
+- Click `Manage your store` to login to the PrestaShop admin dashboard.
+  ![Alt text](./awsimgs/prestaloginimage.png)
+  ![Alt text](./awsimgs/prestadashboardimage.png)
+- Click `View my store` or visit the public dns from your EC2 instance to view the store front.
+  ![Alt text](./awsimgs/prestafront.gif)
