@@ -14,9 +14,9 @@ Your new Prestashop Installation should have a publicly accessible URL (use AWS 
 
 **Important**: Use only the Free-Tier of Amazon Web Services to answer this Section: 
 
-ANSWER: 
-PrestaShop Installation: http://ec2-3-92-78-204.compute-1.amazonaws.com/
-Documentation: https://github.com/mrdankuta/presta-setup/blob/main/doc.md
+### Implementation: 
+- PrestaShop Installation: http://ec2-3-92-78-204.compute-1.amazonaws.com/
+- Documentation: https://github.com/mrdankuta/presta-setup/blob/main/doc.md
 
 
 ## Services Used
